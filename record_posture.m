@@ -35,7 +35,7 @@ disp('posture recorded in data')
 % posture_name='ee_init'
 posture_name='ee_on_handle'
 task='drawer_push/';
-dir='saved_position/';
+dir='saved_posture/';
 fn=strcat(dir, task, posture_name,'.mat')
 
 % save(fn, 'data')

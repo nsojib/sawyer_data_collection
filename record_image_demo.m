@@ -1,18 +1,19 @@
 %require:run first_connect_sawyer.m 
 
-% [TO TEST]
-% record robot state without camera image.
-% For low dimension trajectory
-% and initial robot posture and end-effector position saving for object location.
+% collect lowdim+rgb image from realsense
+
 
 %% manual movement to record demonstration.
 close all
 joint_sub = rossubscriber('/robot/joint_states', 'DataFormat','struct');
 
 gripper_sub = rossubscriber('/gripper_command', 'DataFormat','struct');
-disp('wait for gripper action');
-gripper_sub.receive();
+% gripper_sub.receive();
 pause(3);
+
+disp('starting cam');
+
+cam = webcam(1);
 
 allMsg = [];
 
@@ -30,12 +31,20 @@ while 1
     jointMsg = joint_sub.LatestMessage;
     robot.setJointsMsg(jointMsg);
     q1 = robot.getJoints();
+    
+    img = cam.snapshot();
+    img=imresize(img, 0.5);
+    imshow(img);
+
+    jointMsg.img=img; %adding image data.
+
+
 
     if norm(q1-q2) < 0.02 && ~trigger
         continue
     end
     
-    trigger= true
+    trigger= true;
 
     robot.setJointsMsg(jointMsg); 
 
@@ -65,20 +74,55 @@ while 1
 
 
     grip=gripper_sub.LatestMessage;
-    % grip=0; %TODO: remove
     jointMsg.gripper=grip; %adding gripper data in allMsg
-
+ 
     allMsg = cat(1, allMsg, jointMsg);
     count = count + 1
     % pause(0.005);
 end
-
-%% now save the data.
  
-% save('april29/sawyer_pick_b5.mat', 'allMsg')
+
+%% find first movement [to discard silence before starting action]
+
+start_i=1;
+q_old=allMsg(1);
+for i=2: size(allMsg,1)
+    q=allMsg(i);
+
+     if norm(q.Velocity-q_old.Velocity) < 0.01
+        continue;
+     end
+     fprintf('start at %d\n',i);
+     start_i=i;
+     break;
+end
+
+
+%% from last, find idle index
+stop_i=size(allMsg,1);
+q=allMsg(size(allMsg,1));      %last index
+q_old=q;
+
+for i=size(allMsg,1)-1:-1:1
+     q=allMsg(i);
+
+     if norm(q.Velocity-q_old.Velocity) < 0.01
+        continue;
+     end
+     fprintf('stop at %d\n',i);
+     stop_i=i;
+     break;
+     
+end
+
+%% crop [start_i-1:stop_i]
+
+allMsg=allMsg(start_i-1 : stop_i);
 
  
-%% view recorded trajectory as 3d animation.
+
+ 
+%% playback (plotting)
 
 gripperBaseInd = 18;
 for i = 1:length(allMsg)
@@ -106,3 +150,21 @@ for i = 1:length(allMsg)
     robot.getJoints()
 
 end
+
+
+%% show imgs
+for i=1: size(allMsg,1)
+    img=allMsg(i).img;
+    imshow(img);
+    pause(0.005);
+end
+
+%% now save the trajectory
+% datetime.setDefaultFormats('default','yyyy-MM-dd-hh-mm')
+
+task='drawer_push/'
+fn=strcat('demos/',task, date , '/' , string(datetime) ,'.mat')
+% save(fn, 'allMsg')
+
+
+

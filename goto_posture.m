@@ -11,8 +11,8 @@ pubGripper = rospublisher('/gripper_command')
 
 %% load posture
 
-% filename='saved_position/drawer_push/ee_init.mat'
-filename='saved_position/drawer_push/ee_on_handle.mat'
+filename='saved_posture/drawer_push/ee_init.mat'
+% filename='saved_posture/drawer_push/ee_on_handle.mat'
 data=load(filename).data;
 
 %% goto to posture

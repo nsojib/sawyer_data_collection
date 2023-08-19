@@ -1,25 +1,6 @@
-%% init ros
-setenv('ROS_MASTER_URI', 'http://192.168.1.10:11311')
-setenv('ROS_IP', '192.168.1.30')
-rosshutdown()
-rosinit()
-robot = Sawyer();
-joint_sub = rossubscriber('/robot/joint_states', 'DataFormat','struct');
+%require:run first_connect_sawyer.m 
 
-pubJointCmd = rospublisher('/robot/limb/right/joint_command')
-
-%% gripper init
-pubGripper = rospublisher('/gripper_command')
-msgGripper =  rosmessage(pubGripper)
-
-%% gripper open
-msgGripper.Data = true;
-send(pubGripper, msgGripper)
-
-
-%% gripper close
-msgGripper.Data = false;
-send(pubGripper, msgGripper)
+% collect lowdim+rgb image from realsense
 
 
 %% manual movement to record demonstration.
@@ -27,7 +8,7 @@ close all
 joint_sub = rossubscriber('/robot/joint_states', 'DataFormat','struct');
 
 gripper_sub = rossubscriber('/gripper_command', 'DataFormat','struct');
-gripper_sub.receive();
+% gripper_sub.receive();
 pause(3);
 
 disp('starting cam');
@@ -53,13 +34,17 @@ while 1
     
     img = cam.snapshot();
     img=imresize(img, 0.5);
-    imshow(img)
+    imshow(img);
+
+    jointMsg.img=img; %adding image data.
+
+
 
     if norm(q1-q2) < 0.02 && ~trigger
         continue
     end
     
-    trigger= true
+    trigger= true;
 
     robot.setJointsMsg(jointMsg); 
 
@@ -89,26 +74,32 @@ while 1
 
 
     grip=gripper_sub.LatestMessage;
-    % grip=0; %TODO: remove
     jointMsg.gripper=grip; %adding gripper data in allMsg
-
-    jointMsg.img=img %adding image data.
-
-
-
+ 
     allMsg = cat(1, allMsg, jointMsg);
     count = count + 1
     % pause(0.005);
 end
-
-%% now save the data.
  
-save('april29/sawyer_pick_b5.mat', 'allMsg')
-%testDemo6 recorded all the values, then used allMsg(1:3:end)
+
+%% find first movement [to discard silence before starting action]
+
+start_i=1;
+q_old=allMsg(1);
+for i=2: size(allMsg,1)
+    q=allMsg(i);
+
+     if norm(q.Velocity-q_old.Velocity) < 0.01
+        continue;
+     end
+     fprintf('start at %d\n',i);
+     start_i=i;
+     break;
+end
 
 
 %% from last, find idle index
- 
+stop_i=size(allMsg,1);
 q=allMsg(size(allMsg,1));      %last index
 q_old=q;
 
@@ -119,12 +110,14 @@ for i=size(allMsg,1)-1:-1:1
         continue;
      end
      fprintf('stop at %d\n',i);
+     stop_i=i;
      break;
      
 end
 
+%% crop [start_i-1:stop_i]
 
-allMsg=allMsg(1:i);
+allMsg=allMsg(start_i-1 : stop_i);
 
  
 
@@ -159,30 +152,19 @@ for i = 1:length(allMsg)
 end
 
 
-
-
-%% goto 1st position
-
-gain=0.5;
-th=0.2;
-executeReference2(gain, allMsg(1) , joint_sub, robot, pubJointCmd, 2, th, false)
-
-%% play the recorded demo
-% executeReference2(gain, allMsg , joint_sub, robot, pubJointCmd, 2, th, false)
-executeReference(gain, allMsg, joint_sub, robot, pubJointCmd, pubGripper, 2, th, false)
-
-
 %% show imgs
 for i=1: size(allMsg,1)
     img=allMsg(i).img;
     imshow(img);
-    % pause(0.005);
+    pause(0.005);
 end
 
-%% gripper info
-for i=1: size(allMsg,1)
-    gs=allMsg(i).gripper;
-    i
-    gs
+%% now save the trajectory
+% datetime.setDefaultFormats('default','yyyy-MM-dd-hh-mm')
 
-end
+task='drawer_push/'
+fn=strcat('demos/',task, date , '/' , string(datetime) ,'.mat')
+save(fn, 'allMsg')
+
+
+
