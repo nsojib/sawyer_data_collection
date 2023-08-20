@@ -9,22 +9,13 @@ pubJointCmd = rospublisher('/robot/limb/right/joint_command')
 pubGripper = rospublisher('/gripper_command')
 
 
-%% load posture1
+%% load posture
 
-filename='demos/drawer_push/posture/ee_init.mat' 
+filename='demos/drawer_push/posture/ee_init.mat'
+% % filename='demos/drawer_push/posture/ee_on_handle.mat'
 data=load(filename).data;
 
-gain=0.5;
-th=0.2;
-executeReference(gain, data, joint_sub, robot, pubJointCmd, pubGripper, 2, th, false)
-
-
-%% load posture2
- 
-filename='demos/drawer_push/posture/ee_on_handle.mat'
-data=load(filename).data;
-
-% goto to posture
+%% goto to posture
 gain=0.5;
 th=0.2;
 executeReference(gain, data, joint_sub, robot, pubJointCmd, pubGripper, 2, th, false)

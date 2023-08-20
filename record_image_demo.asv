@@ -35,10 +35,7 @@ while 1
     img = cam.snapshot();
     img=imresize(img, 0.5);
     imshow(img);
-
     jointMsg.img=img; %adding image data.
-
-
 
     if norm(q1-q2) < 0.02 && ~trigger
         continue
@@ -48,25 +45,10 @@ while 1
 
     robot.setJointsMsg(jointMsg); 
 
-    % if count>40 && triggered
-    % 
-    %     if norm(q1-q2) < 0.02 
-    %         disp('no change detected');
-    %         break;
-    %     end
-    % 
-    %     q2=q1;
-    % end
-
 
     if isempty(gripper_sub.LatestMessage)
         continue;
     end
-    %     if (norm(q-robot.getJoints()) < .005 )
-    %         continue
-    %     end
-    %     q = robot.getJoints();
-    %     robot.plotObject()
 
     if length(jointMsg.Position) < 5   %ignore only the gripper joint data.
         continue;
@@ -89,7 +71,7 @@ q_old=allMsg(1);
 for i=2: size(allMsg,1)
     q=allMsg(i);
 
-     if norm(q.Velocity-q_old.Velocity) < 0.01
+     if norm(q.Velocity-q_old.Velocity) < 0.02
         continue;
      end
      fprintf('start at %d\n',i);
@@ -98,7 +80,7 @@ for i=2: size(allMsg,1)
 end
 
 
-%% from last, find idle index
+% from last, find idle index
 stop_i=size(allMsg,1);
 q=allMsg(size(allMsg,1));      %last index
 q_old=q;
@@ -106,7 +88,7 @@ q_old=q;
 for i=size(allMsg,1)-1:-1:1
      q=allMsg(i);
 
-     if norm(q.Velocity-q_old.Velocity) < 0.01
+     if norm(q.Velocity-q_old.Velocity) < 0.02
         continue;
      end
      fprintf('stop at %d\n',i);
@@ -115,11 +97,17 @@ for i=size(allMsg,1)-1:-1:1
      
 end
 
-%% crop [start_i-1:stop_i]
+% crop [start_i-1:stop_i]
 
 allMsg=allMsg(start_i-1 : stop_i);
 
- 
+%% now save the trajectory
+datetime.setDefaultFormats('default','yyyy-MM-dd-hh-mm')
+
+task='drawer_push/'
+fn=strcat('demos/',task, date , '/' , string(datetime) ,'.mat')
+save(fn, 'allMsg')
+
 
  
 %% playback (plotting)
@@ -159,12 +147,6 @@ for i=1: size(allMsg,1)
     pause(0.005);
 end
 
-%% now save the trajectory
-% datetime.setDefaultFormats('default','yyyy-MM-dd-hh-mm')
-
-task='drawer_push/'
-fn=strcat('demos/',task, date , '/' , string(datetime) ,'.mat')
-save(fn, 'allMsg')
 
 
 
